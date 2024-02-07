@@ -13,7 +13,7 @@ from config.database import Session, engine, Base
 from models.movie import Movie as MovieModel
 from jwt_manager import Token, User, get_current_active_user, create_access_token, authenticate_user, fake_users_db, JWTBearer
 
-from sqlalchemy import select
+from sqlalchemy import select, delete
 
 load_dotenv()
 
@@ -43,7 +43,7 @@ class Movie(BaseModel):
     title: str = Field(min_length=5, max_length=100)
     overview: str = Field(min_length=5, max_length=50)
     year: int = Field(le=2024)
-    rating: float = Field(ge=1, le=10)
+    rating: float = Field(ge=0, le=10)
     category: str = Field(min_length=3, max_length=50)
 
     # esto declara los valores default de la clase movie
@@ -71,7 +71,7 @@ def message():
         <p>This is a HTMLResponse from python</p>
         '''
     )
-@app.get('/movies', tags=['movies'], response_model=List[Movie], status_code=200, dependencies=[Depends(JWTBearer())] )
+@app.get('/movies', tags=['movies'], response_model=List[Movie], status_code=200) # ,dependencies=[Depends(JWTBearer())] 
 async def movies_list() -> List[Movie]:
     try:
         db = Session()
@@ -131,28 +131,30 @@ def createMovie(movie: Movie):
     except:
         return JSONResponse(status_code=500, content={"message":"Fallo del servidor"})
 
-# def createMovie(data: dict):
-#     movies_list.append(data)
-#     return data
-
 @app.put('/movies/{id}', tags=['movies'], response_model=Dict, status_code=200)
-def updateMovie(id: int, movie: Movie) -> Dict:
-    for item in movies_list:
-        if item['id'] == id:
-            item['title'] = movie.title if movie.title != None else item['title']
-            item['year'] = movie.year if movie.year != None else item['year']
-            item['category'] = movie.category if movie.category != None else item['category']
-            return JSONResponse(status_code=200, content={"message":"Pelicula modificada"})
-        else: 
-            return JSONResponse(status_code=400, content={"message":"Pelicula no encontrada"})
+async def updateMovie(id: int, movie: Movie) -> Dict:
+    try:
+        db = Session()
+        result = db.scalar(select(MovieModel).where(MovieModel.id == id))
+        
+        for item in jsonable_encoder(result).keys():
+            setattr(result, item, getattr(movie, item))
+        db.commit()
+            
+        return JSONResponse(status_code=201, content={"message":"Pelicula Modificada"})
+    except:
+        return JSONResponse(status_code=500, content={"message":"Fallo del servidor"})
+
     
 @app.delete('/movies/{id}', tags=['movies'], response_model=Dict, status_code=200)
 def deleteMovie(id: int) -> Dict:
-    for movie in movies_list:
-        if movie['id'] == id:
-            movies_list.remove(movie)
+        try:
+            db = Session()
+            db.execute(delete(MovieModel).where(MovieModel.id==id))
+            db.commit()
+
             return JSONResponse(status_code=200, content={"message":"Pelicula eliminada"})
-        else: 
+        except: 
             return JSONResponse(status_code=400, content={"message":"Pelicula no encontrada"})
         
 
