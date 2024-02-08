@@ -14,6 +14,9 @@ from pydantic import BaseModel
 
 load_dotenv()
 
+
+# Hay que pasar esto a una verdadera tabla de usuarios para autenticacion
+
 fake_users_db = {
     "johndoe": {
         "username": "johndoe",
@@ -24,10 +27,6 @@ fake_users_db = {
     }
 }
 
-class JWTBearer(HTTPBearer):
-    async def __call__(self, request: Request):
-        auth = await super().__call__(request)
-        await get_current_user(auth.credentials)
 
 class Token(BaseModel):
     access_token: str
